@@ -1,0 +1,24 @@
+services:
+  radar:
+    build: .
+    image: foreign-freelance-radar
+    # Reads TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID / etc. from your local .env.
+    # required: false -> works even before you create .env (e.g. for --dry-run).
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      # Keep results on the host
+      - ./output:/app/output
+      # Persist the Telegram user session (only used with --use-telegram-session)
+      - ./sessions:/app/sessions
+    # `docker compose up` runs this: collect deals and send them to your bot.
+    # Reads Telegram channels through your user session (already logged in) and
+    # falls back to public sources. Remove --use-telegram-session to skip the
+    # account session and use only public t.me/s pages + web sources.
+    command: ["--use-telegram-session", "--limit", "20", "--per-source", "20", "--min-score", "40", "--telegram"]
+    # Do not auto-restart: this is a one-shot job, not a daemon.
+    restart: "no"
+    # Needed so Telethon can ask for the login code on first run
+    stdin_open: true
+    tty: true
