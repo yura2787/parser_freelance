@@ -1,0 +1,13 @@
+[project]
+name = "foreign-freelance-radar"
+version = "0.2.0"
+description = "Telegram-first foreign freelance deal radar, tuned for a Python backend stack."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "beautifulsoup4>=4.12.0",
+    "telethon>=1.36.0",
+]
+
+[tool.uv]
+package = false
