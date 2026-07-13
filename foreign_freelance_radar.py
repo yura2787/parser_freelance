@@ -636,6 +636,22 @@ FETCHERS = {
 }
 
 
+def parse_amounts(text: str) -> list[float]:
+    """Pull numeric amounts out of a budget string, honouring k/K and m/M suffixes."""
+    amounts: list[float] = []
+    for number, suffix in re.findall(r"([0-9][0-9,.]*)([kKmM])?", text):
+        try:
+            value = float(number.replace(",", ""))
+        except ValueError:
+            continue
+        if suffix in ("k", "K"):
+            value *= 1_000
+        elif suffix in ("m", "M"):
+            value *= 1_000_000
+        amounts.append(value)
+    return amounts
+
+
 def budget_usd_estimate(budget: str) -> float | None:
     if not budget:
         return None
@@ -644,13 +660,13 @@ def budget_usd_estimate(budget: str) -> float | None:
     code_rates = {"usd": 1.0, "eur": 1.08, "gbp": 1.27, "inr": 0.012, "aud": 0.66, "cad": 0.73, "sgd": 0.75}
     symbol_match = re.search(r"([£€$₹])", budget)
     if symbol_match:
-        amounts = [float(value.replace(",", "")) for value in re.findall(r"[0-9][0-9,.]*", budget)]
+        amounts = parse_amounts(budget)
         if not amounts:
             return None
         return max(amounts) * symbol_rates.get(symbol_match.group(1), 1.0)
     code_match = re.search(r"\b(usd|eur|gbp|inr|aud|cad|sgd)\b", lower)
     if code_match:
-        amounts = [float(value.replace(",", "")) for value in re.findall(r"[0-9][0-9,.]*", lower)]
+        amounts = parse_amounts(lower)
         if not amounts:
             return None
         return max(amounts) * code_rates.get(code_match.group(1), 1.0)
@@ -907,6 +923,7 @@ def main() -> None:
     parser.add_argument("--use-telegram-session", action="store_true", help="Read Telegram sources through a user session instead of public t.me/s pages.")
     parser.add_argument("--clean-only", action="store_true", help="Hide cards with any risk flags.")
     parser.add_argument("--min-budget", type=int, default=0, help="Drop deals whose parsed budget (USD estimate) is below this. 0 = off.")
+    parser.add_argument("--max-budget", type=int, default=0, help="Drop deals whose parsed budget (USD estimate) is above this. 0 = off.")
     parser.add_argument("--workers", type=int, default=8, help="Parallel workers for fetching sources.")
     parser.add_argument("--all", action="store_true", help="Include deals already seen in previous runs.")
     parser.add_argument("--forget", action="store_true", help="Clear the 'already seen' memory and exit.")
@@ -947,6 +964,12 @@ def main() -> None:
             deal
             for deal in deals
             if (estimate := budget_usd_estimate(deal.budget)) is None or estimate >= args.min_budget
+        ]
+    if args.max_budget > 0:
+        deals = [
+            deal
+            for deal in deals
+            if (estimate := budget_usd_estimate(deal.budget)) is None or estimate <= args.max_budget
         ]
     deals.sort(key=lambda item: (item.score, budget_usd_estimate(item.budget) or 0.0), reverse=True)
 
